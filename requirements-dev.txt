@@ -1,0 +1,8 @@
+-r requirements-api.txt
+-r requirements-ui.txt
+scikit-learn==1.6.1
+optuna==4.2.1
+pytest==8.3.5
+httpx==0.28.1
+ruff==0.11.4
+-e .
