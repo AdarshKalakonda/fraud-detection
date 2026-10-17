@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pandas as pd
-import plotly.graph_objects as go
+import altair as alt
 import requests
 import streamlit as st
 
@@ -78,19 +78,18 @@ with threshold_tab:
     m[2].metric("Precision", f"{row.precision:.1%}")
     m[3].metric("Cost (validation)", f"€{row.cost:,.0f}")
 
-    pr = go.Figure(go.Scatter(x=curves["pr"]["recall"], y=curves["pr"]["precision"], name="PR"))
-    pr.add_trace(go.Scatter(x=[row.recall], y=[row.precision], mode="markers", name="current"))
-    pr.update_layout(
-        title="Precision vs recall (validation)", xaxis_title="Recall", yaxis_title="Precision"
-    )
-    cost = go.Figure(go.Scatter(x=sweep.threshold, y=sweep.cost, name="cost"))
-    cost.add_vline(x=t, line_dash="dash")
-    cost.update_layout(
-        title="Total cost vs threshold (validation)", xaxis_title="Threshold", yaxis_title="€"
-    )
+    pr_points = pd.DataFrame(curves["pr"])
+    current = pd.DataFrame({"recall": [row.recall], "precision": [row.precision]})
+    xy = {"x": alt.X("recall:Q", title="Recall"), "y": alt.Y("precision:Q", title="Precision")}
+    pr = alt.Chart(pr_points, title="Precision vs recall (validation)").mark_line().encode(
+        **xy
+    ) + alt.Chart(current).mark_point(size=120, filled=True, color="red").encode(**xy)
+    cost = alt.Chart(sweep, title="Total cost vs threshold (validation)").mark_line().encode(
+        x=alt.X("threshold:Q", title="Threshold"), y=alt.Y("cost:Q", title="€")
+    ) + alt.Chart(pd.DataFrame({"t": [t]})).mark_rule(strokeDash=[4, 4]).encode(x="t:Q")
     g1, g2 = st.columns(2)
-    g1.plotly_chart(pr, use_container_width=True)
-    g2.plotly_chart(cost, use_container_width=True)
+    g1.altair_chart(pr, use_container_width=True)
+    g2.altair_chart(cost, use_container_width=True)
 
 with drift_tab:
     st.caption(
@@ -122,11 +121,22 @@ with drift_tab:
         st.subheader(f"Overall: {report['status'].upper()} (last {report['n']} predictions)")
         feats = pd.DataFrame(report["features"]).T.reset_index(names="feature")
         feats["psi"] = feats.psi.astype(float)
-        fig = go.Figure(go.Bar(x=feats.feature, y=feats.psi, marker_color=feats.status.map(COLORS)))
-        fig.add_hline(y=0.1, line_dash="dot")
-        fig.add_hline(y=0.25, line_dash="dash")
-        fig.update_layout(title="PSI per feature", yaxis_title="PSI")
-        st.plotly_chart(fig, use_container_width=True)
+        bars = (
+            alt.Chart(feats, title="PSI per feature")
+            .mark_bar()
+            .encode(
+                x=alt.X("feature:N", sort=None, title=None),
+                y=alt.Y("psi:Q", title="PSI"),
+                color=alt.Color(
+                    "status:N",
+                    scale=alt.Scale(domain=list(COLORS), range=list(COLORS.values())),
+                    legend=None,
+                ),
+                tooltip=["feature", "psi", "status"],
+            )
+        )
+        bands = alt.Chart(pd.DataFrame({"y": [0.1, 0.25]})).mark_rule(strokeDash=[4, 4])
+        st.altair_chart(bars + bands.encode(y="y:Q"), use_container_width=True)
         m = st.columns(3)
         m[0].metric("Score PSI", f"{report['score']['psi']:.3f}", report["score"]["status"])
         m[1].metric("Live flag rate", f"{report['flag_rate']['live']:.2%}")
