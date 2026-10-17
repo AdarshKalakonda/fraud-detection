@@ -1,6 +1,18 @@
 import pandas as pd
 
-from fraud.train import passes_gate, time_split
+from fraud.train import passes_gate, sample_rows, time_split
+
+
+def test_sample_rows_tags_source_and_keeps_test_frauds_test_only():
+    n = 1000
+    df = pd.DataFrame({f"V{i}": [0.0] * n for i in range(1, 29)})
+    df["Amount"], df["Time"] = 1.0, range(n)
+    df["Class"] = [1 if i % 50 == 0 else 0 for i in range(n)]
+    tr, _, te = time_split(df)
+    out = sample_rows(tr, te, n_train=100, n_test=50)
+    assert set(out.source) == {"train", "test"}
+    assert (out.source == "train").sum() == 100 and (out[out.source == "train"].Class == 0).all()
+    assert (out[(out.source == "test")].Class == 1).sum() == (te.Class == 1).sum()
 
 
 def test_gate_requires_floor_and_beating_baseline():

@@ -121,7 +121,11 @@ Root: `E:\Docker Project`
    - A slider shows frauds caught vs false alarms at the chosen threshold.
 3. **Drift**:
    - PSI bar chart colored by status, score distribution, and flag rate.
-   - Buttons: "Send normal traffic" (500 sample rows) and "Send drifted traffic" (500 rows with `V14` and `Amount` shifted).
+   - Buttons:
+     - "Send normal traffic": 500 legit rows drawn from 2,000 training rows across all hours.
+     - "Send drifted traffic": the same rows with `V14` −3 and `Amount` ×5.
+     - "Send night-time traffic": real 18:00–24:00 test rows. These show a seasonality false alarm (V1/V3/V28 vary by hour), which is explained in the UI.
+   - `ui/samples.csv` has a `source` column (`train`/`test`). Predict uses test rows only.
 
 Charts use Streamlit built-ins and plotly. The UI never reads model files; everything comes from the API.
 

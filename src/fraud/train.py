@@ -81,6 +81,19 @@ def tune_lgbm(Xtr, ytr, Xva, yva, trials: int) -> lgb.LGBMClassifier:
     return fit(study.best_params)
 
 
+# n_train=2000: a 500-row pool re-sampled 500x gave 5% false "watch" alarms (PSI noise floor).
+def sample_rows(train, test, n_train=2000, n_test=400) -> pd.DataFrame:
+    """UI demo rows. 'train': legit rows across all hours (looks like the drift reference).
+    'test': unseen legit + all frauds from the last (night-time) period, for honest scoring."""
+    cols = V_COLS + ["Amount", "Class"]
+    parts = [
+        train[train.Class == 0].sample(n_train, random_state=42).assign(source="train"),
+        test[test.Class == 0].sample(n_test, random_state=42).assign(source="test"),
+        test[test.Class == 1].assign(source="test"),
+    ]
+    return pd.concat(parts)[cols + ["source"]].round(6)
+
+
 def policy_report(y, scores, t: float) -> dict:
     tp, fp, fn, tn = confusion_at(y, scores, t)
     return {
@@ -161,11 +174,7 @@ def main(argv=None) -> int:
     for name, obj in [("config", config), ("curves", curves), ("reference", reference)]:
         (out / f"{name}.json").write_text(json.dumps(obj, indent=2))
 
-    cols = V_COLS + ["Amount", "Class"]
-    legit = test[test.Class == 0].sample(400, random_state=42)
-    fraud = test[test.Class == 1]
-    fraud = fraud.sample(min(100, len(fraud)), random_state=42)
-    pd.concat([legit, fraud])[cols].round(6).to_csv(args.samples, index=False)
+    sample_rows(train, test).to_csv(args.samples, index=False)
 
     print(json.dumps(config["metrics"]["test"], indent=2))
     for w in picked["warnings"]:
