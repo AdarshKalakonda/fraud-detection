@@ -2,7 +2,8 @@
 
 import numpy as np
 
-GRID = np.round(np.arange(0.01, 1.0, 0.01), 2)
+# Fine steps: scores from a well-calibrated fraud model mostly sit below 0.05.
+GRID = np.arange(1, 1000) / 1000
 
 
 def confusion_at(y, scores, t: float) -> tuple[int, int, int, int]:

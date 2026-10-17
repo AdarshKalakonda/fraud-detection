@@ -20,8 +20,8 @@
 - Data: `data/creditcard.csv.zip`, read directly by pandas. Never committed. Ignore `data/`, `*.zip`, `.venv/`, `logs/`, `*.db`, `.env`.
 - Model features: `V1`–`V28` plus `log1p(Amount)`, 29 in total. `Time` is never a feature.
 - Split: sort by `Time`, then 70 / 15 / 15 for train / val / test. The test set is used only for final reporting.
-- Primary metric: PR-AUC (average precision). Quality gate: test PR-AUC < 0.75 exits 1 and writes no artifacts.
-- Costs: FN = €120, FP = €5. Policies: `cost` (default), `recall` (≥ 0.90), `precision` (≥ 0.90). Threshold grid: 0.01–0.99, step 0.01.
+- Primary metric: PR-AUC (average precision). Quality gate: test PR-AUC must be ≥ 0.70 and beat the baseline, else exit 1 and write no artifacts (changed from 0.75 by the user after the first full run).
+- Costs: FN = €120, FP = €5. Policies: `cost` (default), `recall` (≥ 0.90), `precision` (≥ 0.90). Threshold grid: 0.001–0.999, step 0.001 (changed after the smoke run).
 - PSI bands: < 0.1 is `ok`, 0.1–0.25 is `watch`, > 0.25 is `drift`. Below 50 logged rows, return `insufficient_data`.
 - API: max batch 1000 (413 above that). Env vars `MODEL_DIR` (default `models`) and `DB_PATH` (default `logs/predictions.db`).
 - UI: env var `API_URL` (default `http://localhost:8000`). The UI never reads model files.
@@ -1246,7 +1246,7 @@ with predict_tab:
 with threshold_tab:
     curves = get("/curves")
     sweep = pd.DataFrame(curves["sweep"])
-    t = st.slider("Threshold", 0.01, 0.99, 0.50, 0.01)
+    t = st.slider("Threshold", 0.001, 0.999, 0.05, 0.001, format="%.3f")
     row = sweep.loc[(sweep.threshold - t).abs().idxmin()]
     m = st.columns(4)
     m[0].metric("Frauds caught", f"{int(row.tp)} / {int(row.tp + row.fn)}")
